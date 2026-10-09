@@ -29,9 +29,10 @@ round (tappable options where the client supports it). Never ask for the pre-sha
 12. Pre-tunnel (bypass) static routes to the hub subnets that must be removed at cutover.
 
 ## Round 6 - policies and tests
-13. Security policies needed between the tunnel zone and the LAN zones on each side (ALLOW-IKE-ESP is automatic
-    and mandatory). Address-book entries they use.
-14. Test host(s) behind each side (iperf3, or nping and tcpdump; a traffic-generator MCP server is optional) and who approves failover and interface-down tests. Add the filtered syslog helper on
-    the spoke before testing (see testing.md).
+13. Security policies needed between the tunnel zone and the LAN zones on each side.
+    `ALLOW-IKE-ESP` / `ALLOW-IKE-ESP-RETURN` are automatic, mandatory, and scoped to
+    the spoke IKE address and the anchor. `any`/`any` needs acknowledgment.
+14. Test host(s) behind each side (iperf3, or nping and tcpdump; a traffic-generator MCP server is optional) and who approves failover and interface-down tests. The spoke
+    file adds the filtered `tunnel-ev` syslog (see testing.md).
 
 After the last round show the complete sheet and obtain one "confirmed" before rendering.

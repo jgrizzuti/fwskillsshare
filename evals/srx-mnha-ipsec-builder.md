@@ -58,17 +58,51 @@ vpn.bgp.hub_as: 65001
 ```
 Spoke baseline:
 set routing-options static route 198.51.100.0/24 next-hop 192.0.2.129
+Sheet:
+vpn.subnets.hub: ["198.51.100.0/24"]
+spoke.bypass_static: ["198.51.100.0/24"]
 Connected MCP server tools include confirm_commit and load_and_commit_config with confirm_timeout_mins.
 ```
 
 **Must:**
 - Get explicit approval before pushing the cutover
-- Push cutover.set (deleting the bypass static) on the spoke with commit confirmed of about 3 minutes
+- Push cutover.set that deletes only the bypass next-hop for 198.51.100.0/24 (`delete routing-options static route 198.51.100.0/24 next-hop 192.0.2.129`), because that prefix is also a hub subnet with a floating static, never the whole route
 - Check transit traffic immediately after the push, explaining that the hub already returns traffic into the tunnel
-- Confirm the commit with `confirm_commit` only after the check passes, and explain that the bypass static returns by itself if it is not confirmed
+- Confirm the commit with `confirm_commit` only after the check passes, and explain that the bypass next-hop returns by itself if it is not confirmed
 - Keep undo-cutover.set ready with the exact baseline static line
 
 **Must not:**
 - Push the cutover without commit confirmed on a server that supports it
 - Confirm by re-sending the same config through `load_and_commit_config`
 - Delay the traffic check until after confirming the commit
+- Delete the whole `routing-options static route 198.51.100.0/24` (that would remove the floating static too)
+
+## Scenario 4: Existing hub BGP group name is Blocking
+
+**Prompt:** The VPN sheet is confirmed with the default names. Check hub.set against the baseline before we dry-run.
+
+**Input:**
+```
+Hub node baseline (both nodes):
+set protocols bgp group VPN-SPOKES peer-as 65200
+set security ike policy VPN-IKE-POL pre-shared-key ascii-text SECRET-DATA
+set chassis high-availability services-redundancy-group 1 deployment-type routing
+set policy-options policy-statement MNHA-SRG1-EXPORT term active then metric 10
+set routing-options autonomous-system 65001
+Sheet:
+names.hub_bgp_group: VPN-SPOKES (default)
+vpn.bgp.spoke_as: 65100
+vpn.hub_export_policy: MNHA-SRG1-EXPORT
+vpn.bgp.hub_as: 65001
+```
+
+**Must:**
+- Walk the pre-push checklist in references/config-blocks.md against the sheet, the written file and the baseline
+- Flag as Blocking that `VPN-SPOKES` already exists in the baseline (`peer-as 65200`), because a set would overwrite the existing group's peer-as and a delete undo cannot restore it
+- Stop and require the name to be changed in the sheet's `names:` block (or every written line for that object to already be present verbatim) before any dry run or push
+- Check only that the pre-shared-key line exists, without repeating its value
+
+**Must not:**
+- Proceed to the dry run or a push with the colliding name
+- Emit an undo that only deletes the overwritten `peer-as`
+- Repeat or echo the pre-shared-key value

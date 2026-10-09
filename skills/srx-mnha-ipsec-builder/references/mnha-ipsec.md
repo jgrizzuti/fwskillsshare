@@ -28,11 +28,20 @@ build the tunnel are **intra-zone** traffic and need an explicit permit. The pol
 `show security policies hit-count` because tunnel traffic terminating on the device's own loopback is largely
 host-inbound and is not consistently counted. Never judge it by hit count and never remove it because it reads zero.
 ```
+set security address-book global address IKE-SPOKE <spoke-ike>/32
+set security address-book global address IKE-ANCHOR <anchor>/32
 set applications application VPN-ESP protocol esp
+set security policies from-zone <z> to-zone <z> policy ALLOW-IKE-ESP match source-address IKE-SPOKE
+set security policies from-zone <z> to-zone <z> policy ALLOW-IKE-ESP match destination-address IKE-ANCHOR
 set security policies from-zone <z> to-zone <z> policy ALLOW-IKE-ESP match application [ junos-ike junos-ike-nat VPN-ESP ]
 set security policies from-zone <z> to-zone <z> policy ALLOW-IKE-ESP then permit
+set security policies from-zone <z> to-zone <z> policy ALLOW-IKE-ESP-RETURN match source-address IKE-ANCHOR
+set security policies from-zone <z> to-zone <z> policy ALLOW-IKE-ESP-RETURN match destination-address IKE-SPOKE
+set security policies from-zone <z> to-zone <z> policy ALLOW-IKE-ESP-RETURN match application [ junos-ike junos-ike-nat VPN-ESP ]
+set security policies from-zone <z> to-zone <z> policy ALLOW-IKE-ESP-RETURN then permit
 ```
-Scope source/destination to the peer and the anchor where possible.
+Write both directions by default. `any`/`any` is a sheet override (`vpn.ike.allow_any`)
+that needs acknowledgment, because it also permits IKE and ESP transit in that zone.
 
 ## Routing over the tunnel: three patterns
 - **Documented by Juniper for dynamic routing: node-local tunnels** (one tunnel from the peer to each hub node, not

@@ -1,4 +1,4 @@
-# MNHA hub <-> spoke IPsec sheet. Fill every <FILL>. ASK EVERY BLOCK ON EVERY RUN (never reuse silently).
+# MNHA hub <-> spoke IPsec VPN sheet. Fill every <FILL>. ASK EVERY BLOCK ON EVERY RUN (never reuse silently).
 vpn:
   name: <FILL>
   goal: <FILL>                 # least-planned-loss | fastest-bgp-recovery | quiet-logs   (see SKILL.md Step 1 and config-blocks.md, Goal resolution)
@@ -6,6 +6,7 @@ vpn:
   ike:
     policy: VPN-IKE-POL        # proposal + policy + PSK are set by the USER on every device first; never in this sheet
     dpd: {interval: 3, threshold: 3}
+    # allow_any: false         # true writes ALLOW-IKE-ESP as any/any (Needs Acknowledgment)
   ipsec: {pfs_group: group20, lifetime: 3600}       # ESP AES-256-GCM
   anchor:                      # floating IKE endpoint, identical on both hub nodes
     ip: <FILL>                 # /32 on lo0.<unit>
@@ -25,6 +26,7 @@ spoke:
   external_ifl: <FILL>
   external_zone: <FILL>
   underlay_nexthop: <FILL>     # next hop toward the hub anchor (static /32 route)
-  bypass_static: []            # pre-tunnel routes to the hub subnets, removed at cutover (commit confirmed)
+  bypass_static: []            # pre-tunnel routes to the hub subnets; if a prefix equals a hub subnet, cutover deletes only that next-hop
 address_book: {hub: [], spoke: []}      # [{name: X, prefix: 10.0.0.1/32}]
 policies: {hub: [], spoke: []}          # [{name: P, from_zone: z, to_zone: z, source: A, destination: B, application: any, log: true}]
+# names: {}                    # optional; rename defaults from config-blocks.md on collision

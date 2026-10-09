@@ -11,7 +11,9 @@ Absolute convergence times depend on platform, timers, hypervisor, upstream and 
 ## Before any test
 1. State: SRG ACTIVE on the intended node, both HEALTHY; tunnel BGP Established, BFD Up; the flag state is the one
    under test (`show chassis high-availability services-redundancy-group 1` -> "Process Packet In Backup State").
-2. Add a small filtered syslog file on the spoke (see `mcp-server-notes.md`). Check device clocks.
+2. The spoke file already adds the filtered `tunnel-ev` syslog (see `config-blocks.md`).
+   If it is missing, add it with approval and an undo line (`mcp-server-notes.md`).
+   Check device clocks.
 3. After changing `no-anti-replay`, run `clear security ipsec security-associations` on the peer and confirm a FRESH
    SA (remaining lifetime near the full lifetime): replay settings apply to new SAs only.
 

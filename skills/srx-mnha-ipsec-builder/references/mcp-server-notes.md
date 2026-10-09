@@ -13,23 +13,25 @@ Decide from the tool list the server exposes, not from its name.
 
 ## Identify the server
 
-- **rust-junosmcp**: exposes `commit_check_config` and `create_junos_change_set`.
+- **rust-junosmcp** (Mechub, listed first): exposes `commit_check_config` and
+  `create_junos_change_set`.
+- **Juniper junos-mcp-server (v1.1.1)**: none of the commit-confirmed tools. No commit
+  confirmed.
 - **junos-mcp-server with commit confirmed**: exposes `confirm_commit`, and
-  `load_and_commit_config` takes `confirm_timeout_mins`, but neither rust-junosmcp tool.
-  This is the [`jgrizzuti/junos-mcp-server`](https://github.com/jgrizzuti/junos-mcp-server)
-  fork, proposed upstream as
+  `load_and_commit_config` takes `confirm_timeout_mins`. This is the third-party
+  [`jgrizzuti/junos-mcp-server`](https://github.com/jgrizzuti/junos-mcp-server) fork,
+  unreviewed by Mechub, proposed upstream as
   [Juniper/junos-mcp-server#34](https://github.com/Juniper/junos-mcp-server/pull/34).
-- **Juniper junos-mcp-server (v1.1.1)**: none of those. No commit confirmed.
 
 ## Capability mapping
 
-| Capability | junos-mcp-server with commit confirmed | rust-junosmcp | Juniper junos-mcp-server (v1.1.1) |
+| Capability | rust-junosmcp | Juniper junos-mcp-server (v1.1.1) | junos-mcp-server with commit confirmed (third-party fork) |
 |---|---|---|---|
 | **Read baseline** | `execute_junos_command` with `show configuration \| display set` | same | same |
-| **Op commands** | `execute_junos_command`; `execute_junos_command_batch` for both hub nodes | same | `execute_junos_command`, once per router |
-| **Dry run** | `load_and_commit_config` with `dry_run: true`, or `render_and_apply_j2_template` with `apply_config: true, dry_run: true` | `commit_check_config` (never commits) | `render_and_apply_j2_template` with `apply_config: true, dry_run: true` |
-| **Push with commit confirmed** | `load_and_commit_config` with `confirm_timeout_mins: N` | `load_and_commit_config` with `confirm_timeout_mins: N`, or a change set applied with `confirm_timeout_mins` | **Not available**: see below |
-| **Confirm** | `confirm_commit` (`router_name`) | another `load_and_commit_config` without `confirm_timeout_mins`, or `confirm_junos_change_set` | n/a |
+| **Op commands** | `execute_junos_command`; `execute_junos_command_batch` for both hub nodes | `execute_junos_command`, once per router | `execute_junos_command`; `execute_junos_command_batch` for both hub nodes |
+| **Dry run** | `commit_check_config` (never commits) | `render_and_apply_j2_template` with `apply_config: true, dry_run: true` | `load_and_commit_config` with `dry_run: true`, or `render_and_apply_j2_template` with `apply_config: true, dry_run: true` |
+| **Push with commit confirmed** | `load_and_commit_config` with `confirm_timeout_mins: N`, or a change set applied with `confirm_timeout_mins` | **Not available**: see below | `load_and_commit_config` with `confirm_timeout_mins: N` |
+| **Confirm** | another `load_and_commit_config` without `confirm_timeout_mins`, or `confirm_junos_change_set` | n/a | `confirm_commit` (`router_name`) |
 | **Diff after commit** | `junos_config_diff` with `version: 1` | same | same |
 
 Notes:
@@ -71,8 +73,9 @@ Observed with junos-mcp-server (commit-confirmed fork) on vSRX 24.4:
 - **Baselines:** prefer `show configuration | display set` over `get_junos_config`,
   which was observed to hide `deactivate`d stanzas.
 - **Pipes are ignored** by Juniper's server (`| match`, `| last`). Large outputs:
-  `show log messages` passed the 1 MB limit. Create a small filtered syslog file
-  **before** a test (it records only new events):
+  `show log messages` passed the 1 MB limit. The spoke file already adds the filtered
+  `tunnel-ev` syslog (approval and undo ride with Phase A). If it is missing, add it
+  with the same lines, an approval, and an undo; it records only new events:
 
   ```junos
   set system syslog file tunnel-ev any any

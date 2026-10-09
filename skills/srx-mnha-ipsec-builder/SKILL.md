@@ -76,11 +76,14 @@ CLI commands and ask them to paste the output.
 2. `show version` on all devices: the same release on both hub nodes, and "JUNOS ike"
    present. `show chassis high-availability services-redundancy-group 1` on both hub
    nodes: exactly one ACTIVE, both HEALTHY.
-3. `request system configuration rescue save` on every device (both hub nodes and the
-   spoke).
+3. Rescue config on every device (both hub nodes and the spoke): run
+   `show system configuration rescue`. If none exists, `request system configuration
+   rescue save`. If one already exists, get explicit approval before replacing it
+   (`request system configuration rescue save` overwrites the known-good rescue).
 4. Baselines: `show configuration | display set` on each device, saved as
    `<router>.set`. Prefer it over `get_junos_config`, which can hide `deactivate`d
-   stanzas (`references/mcp-server-notes.md`).
+   stanzas (`references/mcp-server-notes.md`). Baseline files contain secrets unless
+   the server account reads them as `SECRET-DATA`. Keep them local.
 
 ## Step 1 - Ask the goal first
 
@@ -107,7 +110,7 @@ reproducible and harmless in testing; do not turn anti-replay off just to hide t
 Follow `references/intake-questions.md`. Never pre-fill silently from memory, an
 earlier run or the devices: discovered values are only *suggested defaults* that the
 user confirms. At most three questions per round. Fill a copy of
-`references/pair-sheet.example.yaml` (a filled example is in
+`references/vpn-sheet.example.yaml` (a filled example is in
 `references/example.yaml`), show the **complete** sheet and get one explicit
 "confirmed".
 
@@ -130,9 +133,11 @@ the written files and each baseline:
 - **Tell the User** items are context.
 
 Undo files are valid only against the baseline they were computed from; dry-run an
-undo before relying on it. `ALLOW-IKE-ESP` (intra-zone IKE and ESP) is **mandatory**
-and always written: it can show 0 hits and must still stay (`references/mnha-ipsec.md`).
-Never hand-edit a checked file; change the sheet and rewrite.
+undo before relying on it. If a written line would replace an existing single-valued
+leaf, stop (Blocking): a delete cannot restore the old value. `ALLOW-IKE-ESP` (intra-zone
+IKE and ESP, scoped spoke → anchor and anchor → spoke) is **mandatory** and always
+written: it can show 0 hits and must still stay (`references/mnha-ipsec.md`). Never
+hand-edit a checked file; change the sheet and rewrite.
 
 ## Step 4 - Dry run on the devices
 
@@ -143,8 +148,12 @@ remove. Show the user the diffs and the checklist result.
 
 ## Step 5 - Approval gate, then Phase A: build the tunnel
 
-This phase changes no traffic path. Get explicit approval to push the hub and spoke
-files; approval of the sheet or the dry run is not approval to push.
+Phase A brings the tunnel up while the spoke's bypass static stays in place. The hub
+starts returning traffic for the spoke prefixes into `st0` as soon as this phase
+commits (BGP import and/or floating statics are more specific than a default), so
+existing flows that still take the bypass black-hole until Phase B. Warn the user
+about that asymmetric window. Get explicit approval to push the hub and spoke files;
+approval of the sheet or the dry run is not approval to push.
 
 Push each device **with commit confirmed** (`confirm_timeout_mins: 5`), verify, then
 confirm. If the server has no commit confirmed, see `references/mcp-server-notes.md`
@@ -193,11 +202,11 @@ output.
   seconds as a target.
 - Bidirectional UDP for 150 s; planned failover at about 20 % of the run, failback at
   about 65 %. Report UDP loss, not the TCP stall.
-- Read the spoke's BFD/BGP downtime and replay messages from a small filtered syslog
-  file added **before** the test.
+- Read the spoke's BFD/BGP downtime and replay messages from the `tunnel-ev` syslog
+  file written in `spoke.set`.
 - Unplanned: disable the underlay uplink on the ACTIVE hub node with
-  `confirm_timeout_mins: 2` (it restores itself), and check that the commit time falls
-  inside the stream window.
+  `confirm_timeout_mins: 2` (it restores itself). Never confirm that commit. Check that
+  the commit time falls inside the stream window.
 - Before failing back, wait until the recovered node's BGP is Established upstream.
 - Recommended extra: a forced child-SA rekey under load with the flag on (idle flaps at
   rekey were seen and are not explained).
@@ -206,7 +215,8 @@ output.
 
 Deliver the VPN sheet, the written files, verification evidence, the measured table,
 the rollback order (`undo-cutover` → `undo-spoke` → `undo-hub` on the hub nodes, backup
-node first), and the replay-log notice if the flag is on.
+node first), and the replay-log notice if the flag is on. Do not include baseline
+files in the report.
 
 ## Guardrails
 
@@ -215,6 +225,9 @@ node first), and the replay-log notice if the flag is on.
   retrying: a call can complete on the device while its reply is lost.
 - Never touch `fxp0`, `system services`, logins or `mgmt_junos`. Never handle the
   pre-shared key.
+- Baseline files contain secrets unless the server account reads them as SECRET-DATA.
+  Keep them local, never include them in the Step 8 report, and delete them when the
+  run ends.
 - One router per MCP call; push the hub **backup node first**.
 - Don't load only one direction in a test, and don't trust a 0-loss result until the
   event timestamps are inside the stream window.
