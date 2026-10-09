@@ -28,7 +28,7 @@ cd fwskillsshare
 Flags:
 
 ```text
---all                 Select all 33 skills
+--all                 Select all 34 skills
 --skill NAME          Select a specific skill by name (repeatable)
 --family NAME         Select a whole family: parsers | srx | tooling | compliance | deployment (repeatable)
 --target WHERE        claude | codex | hermes | both | all

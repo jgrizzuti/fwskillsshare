@@ -59,6 +59,7 @@ declare -a SRX=(
     "srx-ips"
     "srx-mnha-builder"
     "srx-cluster-to-mnha"
+    "srx-mnha-ipsec-builder"
 )
 
 declare -a TOOLING=(
